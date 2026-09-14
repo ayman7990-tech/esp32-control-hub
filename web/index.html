@@ -3,31 +3,31 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>ESP32 Control Hub</title>
-<style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:Arial,Tahoma,sans-serif;background:linear-gradient(135deg,#0f0c29,#24243e);color:#fff;min-height:100vh;padding:20px}
-.c{max-width:800px;margin:0 auto}
-.h{background:linear-gradient(135deg,#0d7377,#14a0a8);padding:30px 20px;border-radius:20px;text-align:center;margin-bottom:20px}
-.h h1{font-size:26px;margin-bottom:8px}
-.h p{opacity:.9;font-size:14px}
-.card{background:rgba(255,255,255,.05);border-radius:16px;padding:20px;margin-bottom:16px;border:1px solid rgba(255,255,255,.08)}
-.card h2{font-size:16px;margin-bottom:16px;color:#5eead4}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px}
-.btn{padding:20px 12px;border-radius:14px;border:2px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05);color:#fff;cursor:pointer;font-family:inherit;font-size:14px;font-weight:bold;transition:all .25s;display:flex;flex-direction:column;align-items:center;gap:8px}
-.btn:hover{transform:translateY(-3px)}
-.btn.on{background:linear-gradient(135deg,#10b981,#059669);border-color:#10b981}
-.btn .icon{font-size:28px}
-.btn .state{font-size:11px;opacity:.75}
-.footer{text-align:center;padding:30px;color:#94a3b8;font-size:12px}
-</style>
+<title>ESP32 Hub</title>
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0d7377">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Control Hub">
-<link rel="apple-touch-icon" href="/icon-192.png">
-<link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,Arial,sans-serif;background:#0f0f1a;color:#fff;min-height:100vh;padding:15px;font-size:15px}
+.c{max-width:700px;margin:0 auto}
+.h{background:linear-gradient(135deg,#0d7377,#14a0a8);padding:25px 15px;border-radius:15px;text-align:center;margin-bottom:15px}
+.h h1{font-size:22px;margin-bottom:5px}
+.h p{font-size:13px;opacity:.9}
+.card{background:#1a1a2e;border-radius:12px;padding:15px;margin-bottom:12px;border:1px solid #2a2a40}
+.card h2{font-size:14px;margin-bottom:12px;color:#5eead4}
+.sensors{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.sensor{background:#0a0a1a;border-radius:10px;padding:12px;text-align:center}
+.sensor .value{font-size:24px;font-weight:bold;color:#5eead4}
+.sensor .label{font-size:11px;color:#94a3b8;margin-top:3px}
+.buttons{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.btn{padding:18px 8px;border-radius:12px;border:2px solid #2a2a40;background:#0a0a1a;color:#fff;cursor:pointer;font-family:inherit;font-size:14px;font-weight:bold;transition:all .2s;display:flex;flex-direction:column;align-items:center;gap:6px}
+.btn:active{transform:scale(.97)}
+.btn.on{background:linear-gradient(135deg,#10b981,#059669);border-color:#10b981}
+.btn .icon{font-size:22px}
+.btn .name{font-size:12px}
+.btn .state{font-size:10px;opacity:.7}
+.footer{text-align:center;padding:15px;color:#64748b;font-size:11px}
+</style>
 </head>
 <body>
 <div class="c">
@@ -35,92 +35,53 @@ body{font-family:Arial,Tahoma,sans-serif;background:linear-gradient(135deg,#0f0c
 <h1>ESP32 Control Hub</h1>
 <p>نظام تحكم متكامل</p>
 </div>
+
 <div class="card">
 <h2>الحساسات</h2>
-<div class="grid" id="sensors"></div>
+<div class="sensors">
+<div class="sensor"><div class="value" id="temp">--</div><div class="label">حرارة C</div></div>
+<div class="sensor"><div class="value" id="hum">--</div><div class="label">رطوبة %</div></div>
 </div>
+</div>
+
 <div class="card">
 <h2>التحكم</h2>
-<div class="grid" id="buttons"></div>
+<div class="buttons" id="buttons"></div>
 </div>
+
 <div class="footer">ESP32 Control Hub</div>
 </div>
+
 <script>
-async function api(p){const r=await fetch(p);return r.json();}
-async function loadConfig(){
-  const c=await api('/api/config');
-  document.getElementById('buttons').innerHTML=c.buttons.map(function(b){
-    return '<button class="btn" data-pin="'+b.pin+'" onclick="toggle(\''+b.pin+'\')"><span class="icon">'+b.icon+'</span><span>'+b.name+'</span><span class="state">OFF</span></button>';
-  }).join('');
+function get(url){return fetch(url).then(function(r){return r.json();});}
+function renderButtons(btns){
+  var html='';
+  for(var i=0;i<btns.length;i++){
+    var b=btns[i];
+    html+='<button class="btn" data-pin="'+b.pin+'" onclick="toggle(\''+b.pin+'\')"><span class="icon">'+b.icon+'</span><span class="name">'+b.name+'</span><span class="state">--</span></button>';
+  }
+  document.getElementById('buttons').innerHTML=html;
 }
-async function loadState(){
-  const s=await api('/api/state');
-  document.querySelectorAll('.btn').forEach(function(b){
-    var st=s[b.dataset.pin]?1:0;
-    b.classList.toggle('on',st===1);
-    b.querySelector('.state').textContent=st?'ON':'OFF';
-  });
-}
-async function loadSensors(){
-  const s=await api('/api/sensors');
-  document.getElementById('sensors').innerHTML='<div class="st"><div class="sn">'+s.temperature+'</div><div class="sl">Temp</div></div><div class="st"><div class="sn">'+s.humidity+'</div><div class="sl">Hum</div></div>';
-}
-async function toggle(pin){
-  await api('/api/toggle?pin='+pin);
-  loadState();
-}
-loadConfig();loadState();loadSensors();
+function loadConfig(){return get('/api/config').then(function(c){if(c.buttons)renderButtons(c.buttons);});}
+function loadState(){return get('/api/state').then(function(s){
+  var btns=document.querySelectorAll('.btn');
+  for(var i=0;i<btns.length;i++){
+    var p=btns[i].dataset.pin;
+    var st=s[p]?1:0;
+    btns[i].classList.toggle('on',st===1);
+    btns[i].querySelector('.state').textContent=st?'ON':'OFF';
+  }
+});}
+function loadSensors(){return get('/api/sensors').then(function(s){
+  document.getElementById('temp').textContent=s.temperature||'--';
+  document.getElementById('hum').textContent=s.humidity||'--';
+});}
+function toggle(pin){return get('/api/toggle?pin='+pin).then(function(){return loadState();});}
+loadConfig().then(function(){return loadState();});
+loadSensors();
 setInterval(loadSensors,5000);
 setInterval(loadState,3000);
-</script>
-
-<!-- PWA Install Banner -->
-<div id="installBanner" style="display:none;position:fixed;bottom:20px;left:20px;right:20px;background:linear-gradient(135deg,#0d7377,#14a0a8);color:#fff;padding:16px 20px;border-radius:15px;box-shadow:0 10px 30px rgba(0,0,0,.4);z-index:999;align-items:center;gap:12px">
-  <div style="font-size:32px">📱</div>
-  <div style="flex:1">
-    <div style="font-weight:bold;margin-bottom:4px">ثبت التطبيق</div>
-    <div style="font-size:12px;opacity:.9">اضغط للتثبيت على شاشتك الرئيسية</div>
-  </div>
-  <button onclick="installPWA()" style="background:#fff;color:#0d7377;border:none;padding:10px 20px;border-radius:10px;font-weight:bold;cursor:pointer;font-family:inherit">تثبيت</button>
-  <button onclick="closeBanner()" style="background:transparent;color:#fff;border:none;font-size:24px;cursor:pointer;padding:0 8px">x</button>
-</div>
-
-<script>
-// Service Worker
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', function() {
-    navigator.serviceWorker.register('/sw.js')
-      .then(function(reg) { console.log('SW registered'); })
-      .catch(function(err) { console.log('SW failed:', err); });
-  });
-}
-
-// Install prompt
-var deferredPrompt = null;
-window.addEventListener('beforeinstallprompt', function(e) {
-  e.preventDefault();
-  deferredPrompt = e;
-  if (!localStorage.getItem('pwaDismissed')) {
-    document.getElementById('installBanner').style.display = 'flex';
-  }
-});
-
-function installPWA() {
-  if (!deferredPrompt) return;
-  deferredPrompt.prompt();
-  deferredPrompt.userChoice.then(function(choice) {
-    if (choice.outcome === 'accepted') {
-      console.log('PWA installed');
-    }
-    deferredPrompt = null;
-    document.getElementById('installBanner').style.display = 'none';
-  });
-}
-
-function closeBanner() {
-  document.getElementById('installBanner').style.display = 'none';
-  localStorage.setItem('pwaDismissed', '1');
-}
+if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').catch(function(){});}
 </script>
 </body>
 </html>
