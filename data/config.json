@@ -1,0 +1,13 @@
+{
+  "device": {
+    "name": "ESP32-Control-Hub",
+    "version": "1.0"
+  },
+  "pins": {
+    "led1": 1,
+    "led2": 1,
+    "relay1": 1,
+    "relay2": 1,
+    "motor": 1
+  }
+}
